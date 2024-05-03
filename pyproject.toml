@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling", "hatch-pyinstaller"]
+build-backend = "hatchling.build"
+
+[project]
+name = "AimHelper"
+dependencies = ["keyring", "PyQt6", "requests", "selenium", "platformdirs"]
+requires-python = ">= 3.9"
+description = "A backgroud application that automates routine AiM tasks"
+dynamic = ["version"]
+
+[project.gui-scripts]
+aimhelper = "__main__:main"
+
+[tool.hatch.version]
+path = "aim_helper/__init__.py"
+
+[tool.hatch.build.targets.pyinstaller]
+require-runtime-dependencies = true
+flags = ["--clean", "--noconfirm", "--onedir", "--windowed"]
+icon = "aim_helper/res/aim.png"
+collect-data = ["aim_helper"]

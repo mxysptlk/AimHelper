@@ -1,0 +1,11 @@
+*.DS_Store
+*.spec
+*.pyc
+*.pyo
+*.egg-info/
+*/__pycache__/
+*/scratch.py
+build/
+dist/
+.pyenv
+.vscode/*
