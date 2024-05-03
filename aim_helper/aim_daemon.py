@@ -181,6 +181,8 @@ class AimFetcher(QObject):
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
 
+        self.new_workorders = []
+        self.active_workorders = []
         self.last_run = datetime.now().astimezone()
 
     @pyqtSlot()
@@ -190,29 +192,44 @@ class AimFetcher(QObject):
     def run(self) -> None:
         # fetch and sort workorders
         logger.debug(f"{self.__class__}: last_run {self.last_run}")
-        logger.debug("Fetching workorders")
-        new_workorders = list(get_workorders("17 Elec New Work"))
-        active_workorders = list(get_workorders("17 Elec All Active"))
-        real_pms = [wo for wo in new_workorders if has_keyword_regex(wo, HOLD_REGEX)]
-        pastdue = [wo for wo in active_workorders if is_past_due(wo)]
+        logger.debug("Fetching workorders...")
+        self.new_workorders = get_workorders("17 Elec New Work")
+        self.active_workorders = get_workorders("17 Elec All Active")
+
+        logger.debug("parsing past due...")
+        pastdue = [wo for wo in self.active_workorders if is_past_due(wo)]
+
+        logger.debug("parsing pm's...")
+        real_pms = [
+            wo for wo in self.new_workorders if has_keyword_regex(wo, HOLD_REGEX)
+        ]
         fake_pms = [
             wo
-            for wo in new_workorders
+            for wo in self.new_workorders
             if has_keyword_regex(wo, CANCEL_REGEX) and wo not in real_pms
         ]
+        logger.debug("parsing stale...")
         stale_workorders = [
             wo
             for wo in get_workorders("17 Elec HOLD")
             if datetime.today().astimezone() - datetime.fromisoformat(wo["entDate"])
             > timedelta(365)
         ]
+        logger.debug("parsing urgent...")
         urgent = [
             wo
-            for wo in new_workorders
+            for wo in self.new_workorders
             if datetime.fromisoformat(wo["entDate"]) > self.last_run
             and wo["sortCode"] in URGENT
             and wo not in fake_pms
         ]
+        logger.debug("Found:")
+        logger.debug(f"{len(fake_pms)} fake pm's")
+        logger.debug(f"{len(real_pms)} reals pm's")
+        logger.debug(f"{len(pastdue)} past due workorders")
+        logger.debug(f"{len(stale_workorders)} stale workorders")
+        logger.debug(f"{len(urgent)} urgent workorders")
+
         cancel = fake_pms + stale_workorders
 
         # Make job lists

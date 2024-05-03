@@ -6,7 +6,7 @@ import re
 
 from requests import Session
 from requests.cookies import cookiejar_from_dict, RequestsCookieJar
-from typing import Dict
+from typing import Any, Dict
 from urllib.parse import quote
 
 from .aim_session import AimSession
@@ -21,6 +21,15 @@ AIM_API_PHASE_SEARCH = (
     AIM_API + "filterName={}&screenName=PHASE_SEARCH&value&rowLimit=1000"
 )
 
+WO_FIELDS = (
+    "proposal",
+    "sortCode",
+    "description",
+    "priCode",
+    "entDate",
+    "statusCode",
+    "bldg",
+)
 
 HOME = os.path.expanduser("~")
 
@@ -37,7 +46,15 @@ ALLOWABLE_DAYS = {
     "400 ROUTINE": datetime.timedelta(25),
 }
 
-Workorder = Dict[str, str]
+
+class Workorder(dict):
+    def __repr__(self) -> str:
+        return f"Workorder:\n{json.dumps(self, indent=2)}"
+
+
+def limit_fields(record: dict, *fields: str) -> Dict[str, Any]:
+    """Include only listed fields in a record"""
+    return {field: record[field] for field in fields if field in record}
 
 
 def _get_new_cookies(netid: str = CONFIG.netid) -> dict:
@@ -95,7 +112,7 @@ def get_workorders(query: str, s: Session = Session()) -> list[Workorder]:
     r = s.get(AIM_API_PHASE_SEARCH.format(query))
     if r.status_code != 200:
         return list()
-    return [record["fields"] for record in r.json()["ResultSet"]["Results"]]
+    return [Workorder(record["fields"]) for record in r.json()["ResultSet"]["Results"]]
 
 
 def is_past_due(record: dict) -> bool:
