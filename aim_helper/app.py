@@ -273,10 +273,10 @@ class NewWorkorderPane(QWidget):
         if self.assign_yes_no.isChecked():
             person = self.shop_people.currentText()
         workorder = {
-            "Property": CONFIG.buildings[self.buildings.currentText()],
-            "Description": self.description.toPlainText(),
-            "Priority": self.priority.currentText(),
-            "Shop Person": person,
+            "bldg": CONFIG.buildings[self.buildings.currentText()],
+            "description": self.description.toPlainText(),
+            "priCode": self.priority.currentText(),
+            "shopPerson": person,
         }
         self.submit_form.emit(workorder)
 
@@ -581,7 +581,6 @@ def run() -> None:
         daemon.processor.finished.connect(window.set_inactive)
         daemon.processor.finished.connect(window.progress_bar.hide)
         daemon.processor.error.connect(window.show_error)
-        daemon.start()
 
         CONFIG.has_changed.connect(daemon.update)
 
@@ -589,6 +588,8 @@ def run() -> None:
         window.assignments_pane.submit_form.connect(daemon.create_daily_assignments)
         window.settings_pane.submit_form.connect(CONFIG.update)
         window.show()
+
+        daemon.start()
         sys.exit(app.exec())
     except Exception:
 

@@ -2,7 +2,7 @@ import logging
 import requests
 
 from datetime import datetime, timedelta
-from typing import Any, Callable, List, Dict
+from typing import Any, Callable, List
 from PyQt6.QtCore import (
     QObject,
     QThreadPool,
@@ -12,11 +12,10 @@ from PyQt6.QtCore import (
     pyqtSignal,
     pyqtSlot,
 )
-from PyQt6.QtWidgets import QMessageBox
 
-from .aim_session import AimSession, AimErrorException
+from .aim_session import AimSession
 from .settings import CONFIG
-from .worklist import has_keyword_regex, is_past_due, get_workorders
+from .worklist import Workorder, has_keyword_regex, is_past_due, get_workorders
 
 logger = logging.getLogger(__name__)
 if CONFIG.debug:
@@ -26,11 +25,9 @@ if CONFIG.debug:
 MSG = "New Urgent work request(s)"
 AIM_URL_TEMPLATE = "https://washington.assetworks.hosting/fmax/screen/PHASE_VIEW?proposal={}&sortCode={}"
 INTERVAL = 5 * 60 * 1000
-CANCEL_REGEX = "\\b(an(n)ual Maintenance|pm)\\b"
+CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm)\\b"
 HOLD_REGEX = "fire|transfer"
 URGENT = ("300 HIGH", "200 URGENT", "100 EMERGENCY")
-
-Workorder = Dict[str, str]
 
 
 class Runnable(QRunnable):
@@ -184,7 +181,7 @@ class AimFetcher(QObject):
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
 
-        self.last_run = datetime.now()
+        self.last_run = datetime.now().astimezone()
 
     @pyqtSlot()
     def fetch(self) -> None:
@@ -206,14 +203,14 @@ class AimFetcher(QObject):
         stale_workorders = [
             wo
             for wo in get_workorders("17 Elec HOLD")
-            if datetime.today() - datetime.fromisoformat(wo["Date Created"])
+            if datetime.today().astimezone() - datetime.fromisoformat(wo["entDate"])
             > timedelta(365)
         ]
         urgent = [
             wo
             for wo in new_workorders
-            if datetime.fromisoformat(wo["Date Created"]) > self.last_run
-            and wo["Priority"] in URGENT
+            if datetime.fromisoformat(wo["entDate"]) > self.last_run
+            and wo["sortCode"] in URGENT
             and wo not in fake_pms
         ]
         cancel = fake_pms + stale_workorders
@@ -233,7 +230,7 @@ class AimFetcher(QObject):
         if urgent:
             notify_17E_urgent(urgent)
 
-        self.last_run = datetime.now()
+        self.last_run = datetime.now().astimezone()
 
 
 class AimDaemon(QObject):
@@ -252,6 +249,7 @@ class AimDaemon(QObject):
     def start(self):
         logger.debug("starting daemon")
         self.timer.start(CONFIG.refresh)
+        self.fetcher.fetch()
 
     @pyqtSlot()
     def update(self):
@@ -278,13 +276,11 @@ def notify_17E_urgent(
     logger.debug("notify")
     msg = ""
     for wo in workorders:
-        url = AIM_URL_TEMPLATE.format(wo["Work Order"], wo["Phase"])
+        url = AIM_URL_TEMPLATE.format(wo["proposal"], wo["sortCode"])
         if CONFIG.ntfy_include_href:
-            msg += (
-                f"[{wo['Work Order']} {wo['Phase']}]({url}) :\n {wo['Description']}\n\n"
-            )
+            msg += f"[{wo['proposal']} {wo['sortCode']}]({url}) :\n {wo['description']}\n\n"
         else:
-            msg += f"{wo['Work Order']} {wo['Phase']}:\n {wo['Description']}\n\n"
+            msg += f"{wo['proposal']} {wo['sortCode']}:\n {wo['description']}\n\n"
         requests.post(
             ntfy_url,
             data=msg.encode(encoding="utf-8"),
@@ -293,23 +289,23 @@ def notify_17E_urgent(
 
 
 def cancel_workorder(aim: AimSession, workorder: Workorder) -> None:
-    aim.change_status(workorder["Work Order"], workorder["Phase"], "CANCEL")
+    aim.change_status(workorder["proposal"], workorder["sortCode"], "CANCEL")
 
 
 def hold_workorder(aim: AimSession, workorder: Workorder) -> None:
-    aim.change_status(workorder["Work Order"], workorder["Phase"], "HOLD")
+    aim.change_status(workorder["proposal"], workorder["sortCode"], "HOLD")
 
 
 def de_escalate_workorder(aim: AimSession, workorder: Workorder) -> None:
-    aim.deprioritize(workorder["Work Order"], workorder["Phase"])
+    aim.deprioritize(workorder["proposal"], workorder["sortCode"])
 
 
 def create_workorder(aim: AimSession, workorder: Workorder) -> None:
     aim.new_workorder(
-        prop=workorder["Property"],
-        desc=workorder["Description"],
-        priority=workorder["Priority"],
-        primary=workorder["Shop Person"],
+        prop=workorder["bldg"],
+        desc=workorder["description"],
+        priority=workorder["priCode"],
+        primary=workorder["shopPerson"],
     )
 
 
@@ -329,5 +325,5 @@ def make_job(workorder: Workorder, action: str) -> Job:
     return Job(
         ACTIONS[action],
         workorder,
-        f"{workorder['Work Order']} -- {workorder['Phase']}",
+        f"{workorder['proposal']} -- {workorder['sortCode']}",
     )

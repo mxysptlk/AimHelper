@@ -4,9 +4,9 @@ import logging
 import os
 import re
 
-from csv import DictReader
 from requests import Session
 from requests.cookies import cookiejar_from_dict, RequestsCookieJar
+from typing import Dict
 from urllib.parse import quote
 
 from .aim_session import AimSession
@@ -16,9 +16,11 @@ logger = logging.getLogger(__name__)
 
 AIM_BASE = "https://washington.assetworks.hosting/fmax/"
 AIM_HOME = AIM_BASE + "screen/WORKDESK"
-AIM_PHASE_SEARCH = AIM_BASE + "screen/PHASE_BROWSE?filterName={filter}"
-AIM_TEST = AIM_PHASE_SEARCH.format(filter="Impact Review")
-AIM_CSV = AIM_BASE + "csv?fmaxScreenName=PHASE_BROWSE"
+AIM_API = AIM_BASE + "api/v3/iq-reports/custom-resource?"
+AIM_API_PHASE_SEARCH = (
+    AIM_API + "filterName={}&screenName=PHASE_SEARCH&value&rowLimit=1000"
+)
+
 
 HOME = os.path.expanduser("~")
 
@@ -34,6 +36,8 @@ ALLOWABLE_DAYS = {
     "300 HIGH": datetime.timedelta(7),
     "400 ROUTINE": datetime.timedelta(25),
 }
+
+Workorder = Dict[str, str]
 
 
 def _get_new_cookies(netid: str = CONFIG.netid) -> dict:
@@ -69,54 +73,56 @@ def save_cookies(cookies: RequestsCookieJar):
         json.dump(cookie_dict, f)
 
 
-def get_workorders(query: str, s: Session = None) -> DictReader:
-    """Retrieve a workorder list from AiM
+def get_workorders(query: str, s: Session = Session()) -> list[Workorder]:
+    """Get a list of workorders from AiM using API call
 
     Args:
-        query (str): The name of an AiM personal query
-        s (Session, optional): an existing requests.Session object.
+        query (str): Name of personal querry
+        s (Session, optional): requests.Session object. Defaults to new Session.
 
     Returns:
-        DictReader: An iterable of dict objects. Element names match columns
-        shown in querry
+        list[Workorder]:
     """
     query = quote(query)
-    if not s:
-        s = Session()
-        s.cookies = get_cookies()
+
+    s.cookies = get_cookies()
     r = s.get(AIM_HOME, allow_redirects=False)
     if r.status_code != 200:
         s.cookies = get_cookies()
     elif r.cookies:
         save_cookies(r.cookies)
 
-    r = s.get(AIM_PHASE_SEARCH.format(filter=query))
-    r = s.get(AIM_CSV)
-    return DictReader(r.text.splitlines())
+    r = s.get(AIM_API_PHASE_SEARCH.format(query))
+    if r.status_code != 200:
+        return list()
+    return [record["fields"] for record in r.json()["ResultSet"]["Results"]]
 
 
 def is_past_due(record: dict) -> bool:
-    if record["Priority"] not in ALLOWABLE_DAYS.keys():
+    if record["priCode"] not in ALLOWABLE_DAYS.keys():
         return False
-    created = datetime.datetime.fromisoformat(record["Date Created"])
-    if datetime.datetime.today() - created > ALLOWABLE_DAYS[record["Priority"]]:
+    created = datetime.datetime.fromisoformat(record["entDate"])
+    if (
+        datetime.datetime.today().astimezone() - created
+        > ALLOWABLE_DAYS[record["priCode"]]
+    ):
         return True
     return False
 
 
 def has_no_hrc(record: dict) -> bool:
     r = re.compile(r"hrc( )?[0-9]{3}$", re.IGNORECASE | re.MULTILINE)
-    return not r.search(record["Description"])
+    return not r.search(record["description"])
 
 
 def has_keyword_regex(record: dict, keyword: str, ignore_case=True) -> bool:
     if ignore_case:
-        return re.search(keyword, record["Description"], re.IGNORECASE | re.MULTILINE)
-    return re.search(keyword, record["Description"])
+        return re.search(keyword, record["description"], re.IGNORECASE | re.MULTILINE)
+    return bool(re.search(keyword, record["description"]))
 
 
 def guess_hrc(record: dict) -> str:
-    txt = record["Description"]
+    txt = record["description"]
     if re.search(
         r"\b(animal(s)?|primate|lab|fume(hood)?)\b", txt, re.IGNORECASE | re.MULTILINE
     ):
