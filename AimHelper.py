@@ -10,7 +10,7 @@ if __name__ == "__main__":
         handlers=[
             logging.StreamHandler(sys.stdout),
             RotatingFileHandler(
-                user_log_path / "aimhelper.log", maxBytes=pow(10, 6), mode="w"
+                user_log_path() / "aimhelper.log", maxBytes=pow(10, 6), mode="w"
             ),
         ]
     )
