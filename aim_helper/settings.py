@@ -4,7 +4,7 @@ import os
 import sys
 
 from dataclasses import dataclass, asdict, field
-from platformdirs import user_config_dir, user_data_dir
+from platformdirs import user_config_dir, user_log_dir
 from typing import Hashable
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -16,6 +16,8 @@ HOME = os.path.expanduser("~")
 CONFIG_DIR = os.path.join(user_config_dir(), "AimHelper")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 COOKIE_FILE = os.path.join(CONFIG_DIR, "cookies.json")
+LOG_FILE = os.path.join(user_log_dir(), "aimhelper.log")
+os.makedirs(user_log_dir(), exist_ok=True)
 
 RESOURCES = os.path.join(os.path.split(__file__)[0], "res")
 

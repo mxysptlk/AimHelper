@@ -2,16 +2,15 @@ import logging
 import sys
 
 from logging.handlers import RotatingFileHandler
-from platformdirs import user_log_path
+
 from aim_helper.app import run
+from aim_helper.settings import LOG_FILE
 
 if __name__ == "__main__":
     logging.basicConfig(
         handlers=[
             logging.StreamHandler(sys.stdout),
-            RotatingFileHandler(
-                user_log_path() / "aimhelper.log", maxBytes=pow(10, 6), mode="w"
-            ),
+            RotatingFileHandler(LOG_FILE, maxBytes=pow(10, 6), mode="w"),
         ]
     )
     run()
