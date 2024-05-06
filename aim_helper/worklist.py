@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import logging.handlers
 import os
 import re
 
@@ -13,6 +14,8 @@ from .aim_session import AimSession
 from .settings import CONFIG, COOKIE_FILE
 
 logger = logging.getLogger(__name__)
+if CONFIG.debug:
+    logger.setLevel(logging.DEBUG)
 
 AIM_BASE = "https://washington.assetworks.hosting/fmax/"
 AIM_HOME = AIM_BASE + "screen/WORKDESK"
@@ -108,11 +111,15 @@ def get_workorders(query: str, s: Session = Session()) -> list[Workorder]:
         s.cookies = get_cookies()
     elif r.cookies:
         save_cookies(r.cookies)
-
+    logger.debug(f"Fetching {AIM_API_PHASE_SEARCH.format(query)}")
     r = s.get(AIM_API_PHASE_SEARCH.format(query))
+    logger.debug(f"Respose code:{r.status_code}")
     if r.status_code != 200:
         return list()
-    return [Workorder(record["fields"]) for record in r.json()["ResultSet"]["Results"]]
+    workorders = [
+        Workorder(**record["fields"]) for record in r.json()["ResultSet"]["Results"]
+    ]
+    return workorders
 
 
 def is_past_due(record: dict) -> bool:

@@ -181,8 +181,8 @@ class AimFetcher(QObject):
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
 
-        self.new_workorders = []
-        self.active_workorders = []
+        self.new_workorders = list()
+        self.active_workorders = list()
         self.last_run = datetime.now().astimezone()
 
     @pyqtSlot()
@@ -220,7 +220,7 @@ class AimFetcher(QObject):
             wo
             for wo in self.new_workorders
             if datetime.fromisoformat(wo["entDate"]) > self.last_run
-            and wo["sortCode"] in URGENT
+            and wo["priCode"] in URGENT
             and wo not in fake_pms
         ]
         logger.debug("Found:")
