@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "AimHelper"
 dependencies = ["keyring", "PyQt6", "requests", "selenium", "platformdirs"]
 requires-python = ">= 3.9"
-license = "GPL 3.0"
 description = "A backgroud application that automates routine AiM tasks"
 dynamic = ["version"]
 classifiers = [
