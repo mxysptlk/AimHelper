@@ -17,7 +17,7 @@ from selenium.common.exceptions import (
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 
 from .settings import CONFIG
 
@@ -154,8 +154,8 @@ class AimSession(QObject):
     interacting with the UW work management web app
     """
 
-    message = pyqtSignal(str)
-    progress = pyqtSignal(int, int)
+    message = Signal(str)
+    progress = Signal(int, int)
 
     def __init__(self, *, netid="", debug=TESTING):
         super().__init__()

@@ -4,13 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "AimHelper"
-dependencies = ["keyring", "PyQt6", "requests", "selenium", "platformdirs"]
+dependencies = ["keyring", "PySide6", "requests", "selenium", "platformdirs"]
 requires-python = ">= 3.9"
 description = "A backgroud application that automates routine AiM tasks"
 dynamic = ["version"]
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.9",

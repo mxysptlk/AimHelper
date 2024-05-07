@@ -7,9 +7,9 @@ import traceback
 
 import keyring
 
-from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QDir, QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import (
+from PySide6.QtGui import QIcon, QAction
+from PySide6.QtCore import QDir, QObject, Signal, Slot
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
@@ -96,7 +96,7 @@ class PasswordChangeDialog(QDialog):
 
         self.setLayout(layout)
 
-    @pyqtSlot()
+    @Slot()
     def on_accept(self) -> None:
         if self.input.text() != self.confirm.text():
             self.status.setText("Passwords do not match!")
@@ -155,7 +155,7 @@ class ConfigWizardWindow(QDialog):
 
         self.setLayout(layout)
 
-    @pyqtSlot()
+    @Slot()
     def on_accept(self) -> None:
         if not self.netid.text():
             self.status.setText("You must enter a NetID")
@@ -178,7 +178,7 @@ class ConfigWizardWindow(QDialog):
 
 
 class DailyAssingnmentsPane(QWidget):
-    submit_form = pyqtSignal(list)
+    submit_form = Signal(list)
 
     def __init__(self, parent: QWidget = None) -> None:
         super().__init__(parent)
@@ -209,7 +209,7 @@ class DailyAssingnmentsPane(QWidget):
 
         self.setLayout(layout)
 
-    @pyqtSlot()
+    @Slot()
     def _toggle_selection(self):
         if self.shop_people.selectedItems():
             self.shop_people.clearSelection()
@@ -218,18 +218,18 @@ class DailyAssingnmentsPane(QWidget):
         self.shop_people.selectAll()
         self.select_all_button.setText("Select None")
 
-    @pyqtSlot()
+    @Slot()
     def _toggle_submit_button(self):
         self.submit_button.setEnabled(bool(self.shop_people.selectedItems()))
 
-    @pyqtSlot()
+    @Slot()
     def on_submit(self):
         people = [item.text() for item in self.shop_people.selectedItems()]
         self.submit_form.emit(people)
 
 
 class NewWorkorderPane(QWidget):
-    submit_form = pyqtSignal(dict)
+    submit_form = Signal(dict)
 
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
@@ -269,7 +269,7 @@ class NewWorkorderPane(QWidget):
 
         self.setLayout(layout)
 
-    @pyqtSlot()
+    @Slot()
     def on_submit(self) -> None:
         person = ""
         if self.assign_yes_no.isChecked():
@@ -282,18 +282,18 @@ class NewWorkorderPane(QWidget):
         }
         self.submit_form.emit(workorder)
 
-    @pyqtSlot()
+    @Slot()
     def _toggle_submit_button(self):
         self.submit_button.setEnabled(bool(self.description.toPlainText()))
 
-    @pyqtSlot()
+    @Slot()
     def _toggle_combo(self) -> None:
         self.shop_people.setEnabled(self.assign_yes_no.isChecked())
 
 
 class SettingsPane(QWidget):
-    submit_form = pyqtSignal(dict)
-    message = pyqtSignal(str)
+    submit_form = Signal(dict)
+    message = Signal(str)
 
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
@@ -384,7 +384,7 @@ class SettingsPane(QWidget):
 
         self.setLayout(main_layout)
 
-    @pyqtSlot()
+    @Slot()
     def _locate_chrome_profile(self):
         dialog = QFileDialog(self)
         profile = dialog.getExistingDirectory(
@@ -393,27 +393,27 @@ class SettingsPane(QWidget):
         if profile:
             self.chrome_profile.setText(os.path.abspath(profile))
 
-    @pyqtSlot()
+    @Slot()
     def _locate_chrome(self):
         dialog = QFileDialog(self)
         file, _ = dialog.getOpenFileName(self, "Locate Chrome")
         if file:
             self.chrome_path.setText(os.path.abspath(file))
 
-    @pyqtSlot()
+    @Slot()
     def _locate_chromedriver(self):
         dialog = QFileDialog(self)
         file, _ = dialog.getOpenFileName(self, "Locate chromedriver")
         if file:
             self.chromedriver_path.setText(os.path.abspath(file))
 
-    @pyqtSlot()
+    @Slot()
     def get_password(self):
         dialog = PasswordChangeDialog()
         if dialog.exec():
             keyring.set_password("aim", self.netid.text(), dialog.get_password())
 
-    @pyqtSlot()
+    @Slot()
     def save(self):
         data = dict()
         data["netid"] = self.netid.text()
@@ -489,33 +489,33 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
         self.statusbar.showMessage("Ready")
 
-    @pyqtSlot()
+    @Slot()
     def show_daily_assignments_pane(self) -> None:
         self.stack.setCurrentIndex(0)
         self.activateWindow()
         if self.isHidden():
             self.show()
 
-    @pyqtSlot()
+    @Slot()
     def show_new_workorder_pane(self) -> None:
         self.stack.setCurrentIndex(1)
         self.activateWindow()
         if self.isHidden():
             self.show()
 
-    @pyqtSlot()
+    @Slot()
     def show_settings_pane(self) -> None:
         self.stack.setCurrentIndex(2)
         self.activateWindow()
         if self.isHidden():
             self.show()
 
-    @pyqtSlot()
+    @Slot()
     def exit_app(self) -> None:
         self.tray_icon.hide()
         QApplication.quit()
 
-    @pyqtSlot(int, int)
+    @Slot(int, int)
     def show_progress(self, completed: int, total: int) -> None:
         self.tray_icon.setToolTip(f"Processing {completed} of {total} jobs.")
         self.progress_bar.show()
@@ -524,24 +524,24 @@ class MainWindow(QMainWindow):
         if completed == total:
             self.tray_icon.setToolTip(None)
 
-    @pyqtSlot()
+    @Slot()
     def hide_progress(self):
         self.progress_bar.hide()
 
-    @pyqtSlot()
+    @Slot()
     def unhide(self):
         self.activateWindow()
         self.show()
 
-    @pyqtSlot()
+    @Slot()
     def set_active(self):
         self.tray_icon.setIcon(self._active_icon)
 
-    @pyqtSlot()
+    @Slot()
     def set_inactive(self):
         self.tray_icon.setIcon(self._normal_icon)
 
-    @pyqtSlot()
+    @Slot()
     def toggle_icon(self) -> None:
         if self._active:
             self._active = False
@@ -551,7 +551,7 @@ class MainWindow(QMainWindow):
             self._active = True
         logger.debug(f"MainWindow Active state: {self._active}")
 
-    @pyqtSlot(str)
+    @Slot(str)
     def show_error(self, message: str) -> None:
         QMessageBox.critical(None, "Error", message)
 

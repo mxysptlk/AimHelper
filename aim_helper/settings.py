@@ -9,7 +9,7 @@ from dataclasses import dataclass, asdict, field
 from platformdirs import user_config_dir, user_log_dir
 from typing import Hashable
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
@@ -84,7 +84,7 @@ class Config(QObject):
     buildings: dict = field(default_factory=lambda: BUILDINGS)
     debug: bool = True
     ntfy_include_href = False
-    has_changed = pyqtSignal(str)
+    has_changed = Signal(str)
 
     def init(self):
         super().__init__()
@@ -113,7 +113,7 @@ class Config(QObject):
 
 class Config2(QObject):
     "wrapper class for a dict object that can save its contents to a json file"
-    has_changed = pyqtSignal()
+    has_changed = Signal()
     DEFAULTS = {
         "netid": "wsj3",
         "ntfy url": "https://ntfy.citisyn.net/17-elec-urgent",

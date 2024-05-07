@@ -5,14 +5,14 @@ import requests
 
 from datetime import datetime, timedelta
 from typing import Any, Callable, List
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     QObject,
     QThreadPool,
     QRunnable,
     QMutex,
     QTimer,
-    pyqtSignal,
-    pyqtSlot,
+    Signal,
+    Slot,
 )
 
 from .aim_session import AimSession
@@ -99,11 +99,11 @@ class JobQue(object):
 
 
 class AimProcessor(QObject):
-    started = pyqtSignal()
-    finished = pyqtSignal()
-    progress = pyqtSignal(int, int)
-    message = pyqtSignal(str)
-    error = pyqtSignal(str)
+    started = Signal()
+    finished = Signal()
+    progress = Signal(int, int)
+    message = Signal(str)
+    error = Signal(str)
 
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
@@ -114,7 +114,7 @@ class AimProcessor(QObject):
     def add_job(self, job: Job) -> None:
         QThreadPool.globalInstance().start(Runnable(self.run_one, job))
 
-    @pyqtSlot(list)
+    @Slot(list)
     def add_jobs(self, jobs: list) -> None:
         self._total_jobs += len(jobs)
         for job in jobs:
@@ -177,8 +177,8 @@ class AimProcessor(QObject):
 
 
 class AimFetcher(QObject):
-    new_jobs = pyqtSignal(list)
-    new_urgent = pyqtSignal(list)
+    new_jobs = Signal(list)
+    new_urgent = Signal(list)
 
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
@@ -187,7 +187,7 @@ class AimFetcher(QObject):
         self.active_workorders = list()
         self.last_run = datetime.now().astimezone()
 
-    @pyqtSlot()
+    @Slot()
     def fetch(self) -> None:
         QThreadPool.globalInstance().start(self.run)
 
@@ -264,17 +264,17 @@ class AimDaemon(QObject):
         self.fetcher.new_urgent.connect(notify_17E_urgent)
         self.fetcher.new_jobs.connect(self.processor.add_jobs)
 
-    @pyqtSlot()
+    @Slot()
     def start(self):
         logger.debug("starting daemon")
         self.timer.start(CONFIG.refresh)
         self.fetcher.fetch()
 
-    @pyqtSlot()
+    @Slot()
     def update(self):
         self.timer.setInterval(CONFIG.refresh)
 
-    @pyqtSlot(list)
+    @Slot(list)
     def create_daily_assignments(self, people: List[str]) -> None:
         msg = "Creating assignments: {}"
         jobs = []
@@ -282,7 +282,7 @@ class AimDaemon(QObject):
             jobs.append(Job(make_daily_assignment, person, msg.format(person)))
         self.processor.add_jobs(jobs)
 
-    @pyqtSlot(dict)
+    @Slot(dict)
     def create_workorder(self, workorder: Workorder) -> None:
         self.processor.add_job(
             Job(create_workorder, workorder, "Creating new workorder")
