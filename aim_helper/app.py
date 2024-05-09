@@ -467,8 +467,6 @@ class ExtraToolsPane(QWidget):
         self.stack_container = QWidget()
         self.tool_selector = QComboBox()
         self.execute_button = QPushButton("Execute")
-        self.tool_selector.currentIndexChanged.connect(self.select_tool)
-        self.execute_button.clicked.connect(self.execute)
 
         # create field widgets
         self.workorder_hrc = QLineEdit()
@@ -517,6 +515,7 @@ class ExtraToolsPane(QWidget):
         self.stack.addWidget(placeholder)
         self.stack.addWidget(assign_workorder_widget)
         self.stack.addWidget(placeholder)
+        self.stack_container.setLayout(self.stack)
 
         # create scroll container, for future use
         scroll_container = QScrollArea()
