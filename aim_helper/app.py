@@ -8,7 +8,7 @@ import traceback
 import keyring
 
 from PySide6.QtGui import QIcon, QAction, QRegularExpressionValidator
-from PySide6.QtCore import QDir, QObject, QRegularExpression, Signal, Slot
+from PySide6.QtCore import QDir, QObject, QRegularExpression, Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -202,6 +202,7 @@ class DailyAssingnmentsPane(QWidget):
 
         self.submit_button.clicked.connect(self.on_submit)
         self.submit_button.setEnabled(False)
+        self.submit_button.setMaximumSize(self.submit_button.sizeHint())
 
         self.select_all_button.clicked.connect(self._toggle_selection)
 
@@ -212,6 +213,7 @@ class DailyAssingnmentsPane(QWidget):
         layout = QFormLayout()
         layout.addRow(container)
         layout.addRow(self.submit_button)
+        layout.setAlignment(self.submit_button, Qt.AlignmentFlag.AlignHCenter)
 
         self.setLayout(layout)
 
@@ -261,6 +263,7 @@ class NewWorkorderPane(QWidget):
 
         self.submit_button.setEnabled(False)
         self.submit_button.clicked.connect(self.on_submit)
+        self.submit_button.setMaximumSize(self.submit_button.sizeHint())
 
         assignment_container = HorizontalContainer()
         assignment_container.addWidget(self.assign_yes_no, 0)
@@ -272,6 +275,7 @@ class NewWorkorderPane(QWidget):
         layout.addRow("Priority", self.priority)
         layout.addRow("Assign", assignment_container)
         layout.addRow(self.submit_button)
+        layout.setAlignment(self.submit_button, Qt.AlignmentFlag.AlignHCenter)
 
         self.setLayout(layout)
 
@@ -343,6 +347,7 @@ class SettingsPane(QWidget):
         self.chrome_profile_button.clicked.connect(self._locate_chrome_profile)
 
         self.save_button.clicked.connect(self.save)
+        self.save_button.setMaximumSize(self.save_button.sizeHint())
 
         # make containers
         ntfy_box = HorizontalContainer()
@@ -359,11 +364,6 @@ class SettingsPane(QWidget):
         chrome_profile_box = HorizontalContainer()
         chrome_profile_box.addWidget(self.chrome_profile)
         chrome_profile_box.addWidget(self.chrome_profile_button, 0)
-
-        save_box = HorizontalContainer()
-        save_box.addWidget(SpacerWidget())
-        save_box.addWidget(self.save_button)
-        save_box.addWidget(SpacerWidget())
 
         scroll_layout = QFormLayout()
         scroll_layout.addRow("NetID", self.netid)
@@ -386,7 +386,8 @@ class SettingsPane(QWidget):
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(scroll_container)
-        main_layout.addWidget(save_box)
+        main_layout.addWidget(self.save_button)
+        main_layout.setAlignment(self.save_button, Qt.AlignmentFlag.AlignHCenter)
 
         self.setLayout(main_layout)
 
@@ -468,6 +469,10 @@ class ExtraToolsPane(QWidget):
         self.tool_selector = QComboBox()
         self.execute_button = QPushButton("Execute")
 
+        self.tool_selector.currentIndexChanged.connect(self.select_tool)
+        self.execute_button.clicked.connect(self.execute)
+        self.execute_button.setMaximumSize(self.execute_button.sizeHint())
+
         # create field widgets
         self.workorder_hrc = QLineEdit()
         self.phase_hrc = QLineEdit()
@@ -526,6 +531,7 @@ class ExtraToolsPane(QWidget):
         main_layout.addWidget(self.tool_selector)
         main_layout.addWidget(scroll_container)
         main_layout.addWidget(self.execute_button)
+        main_layout.setAlignment(self.execute_button, Qt.AlignmentFlag.AlignHCenter)
 
         self.setLayout(main_layout)
 
