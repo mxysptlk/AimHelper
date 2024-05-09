@@ -9,3 +9,4 @@ build/
 dist/
 .pyenv
 .vscode/*
+.sync-exclude.lst

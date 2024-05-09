@@ -4,6 +4,7 @@ import logging
 import requests
 
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Any, Callable, List
 from PySide6.QtCore import (
     QObject,
@@ -17,19 +18,35 @@ from PySide6.QtCore import (
 
 from .aim_session import AimSession
 from .settings import CONFIG
-from .worklist import Workorder, has_keyword_regex, is_past_due, get_workorders
+from .worklist import (
+    Workorder,
+    get_shop_assignments,
+    guess_hrc,
+    has_keyword_regex,
+    has_no_hrc,
+    is_past_due,
+    get_workorders,
+)
 
 logger = logging.getLogger(__name__)
 if CONFIG.debug:
     logger.setLevel(logging.DEBUG)
 
-
+DISABLE_FETCH = False
 MSG = "New Urgent work request(s)"
 AIM_URL_TEMPLATE = "https://washington.assetworks.hosting/fmax/screen/PHASE_VIEW?proposal={}&sortCode={}"
 INTERVAL = 5 * 60 * 1000
 CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm)\\b"
 HOLD_REGEX = "fire|transfer"
 URGENT = ("300 HIGH", "200 URGENT", "100 EMERGENCY")
+
+
+class JobAction(Enum):
+    ADD_HRC = 0
+    ASSIGN = 1
+    CANCEL = 2
+    DE_ESCALATE = 3
+    HOLD = 4
 
 
 class Runnable(QRunnable):
@@ -115,7 +132,7 @@ class AimProcessor(QObject):
         QThreadPool.globalInstance().start(Runnable(self.run_one, job))
 
     @Slot(list)
-    def add_jobs(self, jobs: list) -> None:
+    def add_jobs(self, jobs: list[Job]) -> None:
         self._total_jobs += len(jobs)
         for job in jobs:
             self.jobs.add_job(job)
@@ -153,7 +170,6 @@ class AimProcessor(QObject):
                 if CONFIG.debug:
                     aim.minimize_window()
                 while self.jobs:
-                    logger.debug(self.jobs)
                     self.progress.emit(completed, self._total_jobs - 1)
                     job = self.jobs.pop()
                     if job.action.__name__ == "make_daily_assignment":
@@ -179,6 +195,7 @@ class AimProcessor(QObject):
 class AimFetcher(QObject):
     new_jobs = Signal(list)
     new_urgent = Signal(list)
+    new_worklist = Signal(list)
 
     def __init__(self, parent: QObject = None) -> None:
         super().__init__(parent)
@@ -192,11 +209,39 @@ class AimFetcher(QObject):
         QThreadPool.globalInstance().start(self.run)
 
     def run(self) -> None:
+
+        if DISABLE_FETCH:
+            return
         # fetch and sort workorders
         logger.debug(f"{self.__class__}: last_run {self.last_run}")
         logger.debug("Fetching workorders...")
         self.new_workorders = get_workorders("17 Elec New Work")
         self.active_workorders = get_workorders("17 Elec All Active")
+
+        # fetch shop assignments and add to active workorders
+        logger.debug("fetching assignments")
+        assignments = get_shop_assignments(self.active_workorders)
+        for w in self.active_workorders:
+            w["shopPerson"] == ""
+            for a in assignments:
+                if a["proposal"] == w["proposal"] and a["sortCode"] == w["sortCode"]:
+                    if a["primaryYn"] == "Y":
+                        w["primary"] = a["shopPerson"]
+                        logger.debug(
+                            f"adding {a['shopPerson']} as primary for {w['proposal']}-{w['sortCode']}"
+                        )
+                        break
+                    if a["primaryYn"] == "N":
+                        w["shopPerson"] = a["shopPerson"]
+                        logger.debug(
+                            f"adding {a['shopPerson']} as shopPerson for {w['proposal']}-{w['sortCode']}"
+                        )
+                        break
+
+        open_active = list()
+        open_active.extend(self.new_workorders)
+        open_active.extend(self.active_workorders)
+        self.new_worklist.emit(open_active)
 
         logger.debug("parsing past due...")
         pastdue = [wo for wo in self.active_workorders if is_past_due(wo)]
@@ -235,9 +280,9 @@ class AimFetcher(QObject):
         cancel = fake_pms + stale_workorders
 
         # Make job lists
-        hold = [make_job(wo, "hold") for wo in real_pms]
-        cancel = [make_job(wo, "cancel") for wo in cancel]
-        de_escalate = [make_job(wo, "de-escalate") for wo in pastdue]
+        hold = [make_job(wo, JobAction.HOLD) for wo in real_pms]
+        cancel = [make_job(wo, JobAction.CANCEL) for wo in cancel]
+        de_escalate = [make_job(wo, JobAction.DE_ESCALATE) for wo in pastdue]
 
         jobs = hold + cancel + de_escalate
 
@@ -288,6 +333,28 @@ class AimDaemon(QObject):
             Job(create_workorder, workorder, "Creating new workorder")
         )
 
+    @Slot()
+    def guess_hrcs(self) -> None:
+        workorders = []
+        for w in self.fetcher.active_workorders:
+            if has_no_hrc(w):
+                w["HRC"] = guess_hrc(w)
+                workorders.append(w)
+        self.processor.add_jobs([make_job(w, JobAction.ADD_HRC) for w in workorders])
+
+    @Slot()
+    def fix_primary_assignments(self) -> None:
+        workorders = [w for w in self.fetcher.active_workorders if w["shopPerson"]]
+        self.processor.add_jobs([make_job(w, JobAction.ASSIGN) for w in workorders])
+
+    @Slot(dict)
+    def assign_workorder(self, workorder: Workorder) -> None:
+        pass
+
+    @Slot(dict)
+    def add_hrc_to_workorder(self, workorder: Workorder) -> None:
+        pass
+
 
 def notify_17E_urgent(
     workorders: List[Workorder], ntfy_url: str = CONFIG.ntfy_url
@@ -329,15 +396,33 @@ def create_workorder(aim: AimSession, workorder: Workorder) -> None:
 
 
 def make_daily_assignment(aim: AimSession, person: str) -> None:
-    logger.debug(person)
     aim.make_daily_assignment(person)
 
 
-def make_job(workorder: Workorder, action: str) -> Job:
+def add_hrc(aim: AimSession, workorder: Workorder):
+    aim.add_hrc(
+        workorder=workorder["proposal"],
+        phase=workorder["sortCode"],
+        hrc=workorder["HRC"],
+    )
+
+
+def assign_workorder(aim: AimSession, workorder: Workorder):
+    aim.reassign(
+        workorder=workorder["proposal"],
+        phase=workorder["sortCode"],
+        shop=CONFIG.shop,
+        person=workorder["ShopPerson"],
+    )
+
+
+def make_job(workorder: Workorder, action: JobAction) -> Job:
     ACTIONS = {
-        "cancel": cancel_workorder,
-        "hold": hold_workorder,
-        "de-escalate": de_escalate_workorder,
+        JobAction.CANCEL: cancel_workorder,
+        JobAction.HOLD: hold_workorder,
+        JobAction.DE_ESCALATE: de_escalate_workorder,
+        JobAction.ADD_HRC: add_hrc,
+        JobAction.ASSIGN: assign_workorder,
     }
     if action not in ACTIONS:
         raise ValueError(f"{action} is not a valid action")

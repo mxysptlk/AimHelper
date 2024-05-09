@@ -7,8 +7,8 @@ import traceback
 
 import keyring
 
-from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import QDir, QObject, Signal, Slot
+from PySide6.QtGui import QIcon, QAction, QRegularExpressionValidator
+from PySide6.QtCore import QDir, QObject, QRegularExpression, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 
 # from . import resources
 from .settings import CONFIG, RESOURCES
+from .worklist import Workorder
 from .aim_daemon import AimDaemon
 
 
@@ -47,6 +48,11 @@ logger = logging.getLogger(__name__)
 if CONFIG.debug:
     logger.setLevel(logging.DEBUG)
 
+wo_regex = QRegularExpression("[0-9]{1,7}")
+wo_validator = QRegularExpressionValidator(wo_regex)
+
+ph_regex = QRegularExpression("[0-9]{1,3}")
+ph_validator = QRegularExpressionValidator(ph_regex)
 
 class SpacerWidget(QWidget):
     def __init__(self, parent: QWidget = None) -> None:
@@ -310,6 +316,7 @@ class SettingsPane(QWidget):
         self.chromedriver_button = QPushButton("Search")
         self.debug = QCheckBox("Display chromedriver window")
         self.save_button = QPushButton("Save")
+        self._advanced = (5, 6, 7)
 
         # Prefill existing config
         self.refresh_time.setValue(int(CONFIG.refresh / 60000))
@@ -369,7 +376,6 @@ class SettingsPane(QWidget):
         scroll_layout.addRow("Chrome driver", chromedriver_box)
         scroll_layout.addRow("Debug", self.debug)
         scroll_layout.addRow(SpacerWidget())
-        # scroll_layout.addRow(self.save_button)
 
         settings_container = QWidget()
         settings_container.setLayout(scroll_layout)
@@ -427,6 +433,161 @@ class SettingsPane(QWidget):
         self.message.emit("Settings Saved")
 
 
+class ExtraToolsPane(QWidget):
+    message = Signal(str)
+    fix_assignments = Signal()
+    guess_hrcs = Signal()
+    add_hrc = Signal(dict)
+    assign_workorder = Signal(dict)
+
+    def __init__(self, parent: QWidget = None) -> None:
+        super().__init__(parent)
+        self._tools = (
+            "Add HRC to workorder",
+            "Guess HRCs for all workorders",
+            "(Re)Assign workorder",
+            "Fix missing primary",
+        )
+        hrcs = (
+            "100 - REFIG MONITORING",
+            "103 - BIO SAFETY CABINET",
+            "105 - RELAMP LAB",
+            "106 - RESET BREAKER",
+            "107 - LAB",
+            "108 - PUBLIC SPACE",
+            "109 - ROOF",
+            "110 - MECH ROOM",
+            "113 - LIFT STATION",
+            "115 - INSTALL",
+            "116 - STREET LIGHTS",
+            "117 - LIGHTS (NON LAB)",
+        )
+        # create main container
+        self.stack = QStackedLayout()
+        self.stack_container = QWidget()
+        self.tool_selector = QComboBox()
+        self.execute_button = QPushButton("Execute")
+        self.tool_selector.currentIndexChanged.connect(self.select_tool)
+        self.execute_button.clicked.connect(self.execute)
+
+        # create field widgets
+        self.workorder_hrc = QLineEdit()
+        self.phase_hrc = QLineEdit()
+        self.hrc = QListWidget()
+        self.workorder_assign = QLineEdit()
+        self.phase_assign = QLineEdit()
+        self.shop_people = QListWidget()
+
+        self.tool_selector.addItems(self._tools)
+        self.shop_people.addItems(CONFIG.shop_people.keys())
+        self.workorder_hrc.setValidator(wo_validator)
+        self.phase_hrc.setValidator(ph_validator)
+        self.workorder_assign.setValidator(wo_validator)
+        self.phase_assign.setValidator(ph_validator)
+        self.hrc.addItems(hrcs)
+
+        # create forms:
+
+        # Placeholder, for tools that take no arguments
+        placeholder = QWidget(self.stack_container)
+        placeholder_layout = QVBoxLayout()
+        placeholder_layout.addWidget(
+            QLabel("No additional parameters required for this tool.")
+        )
+        placeholder.setLayout(placeholder_layout)
+
+        # Add HRC form
+        add_hrc_form = QFormLayout()
+        add_hrc_form.addRow("Workorder", self.workorder_hrc)
+        add_hrc_form.addRow("Phase", self.phase_hrc)
+        add_hrc_form.addRow("HRC", self.hrc)
+        add_hrc_widget = QWidget(self.stack_container)
+        add_hrc_widget.setLayout(add_hrc_form)
+
+        # Assign Workorder Form
+        assign_workorder_form = QFormLayout()
+        assign_workorder_form.addRow("Workorder", self.workorder_assign)
+        assign_workorder_form.addRow("Phase", self.phase_assign)
+        assign_workorder_form.addRow("Shop Person", self.shop_people)
+        assign_workorder_widget = QWidget(self.stack_container)
+        assign_workorder_widget.setLayout(assign_workorder_form)
+
+        # Add forms to stack
+        self.stack.addWidget(add_hrc_widget)
+        self.stack.addWidget(placeholder)
+        self.stack.addWidget(assign_workorder_widget)
+        self.stack.addWidget(placeholder)
+
+        # create scroll container, for future use
+        scroll_container = QScrollArea()
+        scroll_container.setWidget(self.stack_container)
+        scroll_container.setWidgetResizable(True)
+
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.tool_selector)
+        main_layout.addWidget(scroll_container)
+        main_layout.addWidget(self.execute_button)
+
+        self.setLayout(main_layout)
+
+    @Slot(int)
+    def select_tool(self, index: int) -> None:
+        self.stack.setCurrentIndex(index)
+
+    @Slot()
+    def execute(self):
+        tool = self.tool_selector.currentIndex()
+        tool_text = self.tool_selector.currentText()
+        logger.debug(tool_text)
+
+        if tool == 0:
+            # add hrc
+            if not self.hrc.currentItem():
+                self.message.emit("No HRC selected.")
+                return
+            hrc = self.hrc.currentItem().text()[:3]
+            wo = self.workorder_hrc.text()
+            ph = self.phase_hrc.text()
+            if not wo:
+                self.message.emit("No workorder given.")
+                return
+            if not ph:
+                self.message.emit("No Phase given.")
+                return
+            wo = wo.zfill(6)
+            ph = ph.zfill(3)
+            logger.debug(f"adding hrc {hrc} to {wo} - {ph}")
+            self.add_hrc.emit(dict(proposal=wo, sortCode=ph, HRC=hrc))
+        elif tool == 1:
+            # guess hrcs
+            logger.debug("guessing HRCs")
+            self.guess_hrcs.emit()
+        elif tool == 2:
+            # assign workorder
+            if not self.shop_people.currentItem():
+                self.message.emit("No shop peron selected.")
+                return
+            person = self.shop_people.currentItem().text()
+
+            wo = self.workorder_assign.text()
+            ph = self.phase_assign.text()
+            if not wo:
+                self.message.emit("No workorder given.")
+                return
+            if not ph:
+                self.message.emit("No Phase given.")
+                return
+            wo = wo.zfill(6)
+            ph = ph.zfill(3)
+            logger.debug(f"assigning {wo} - {ph} to {person}")
+            self.assign_workorder.emit(
+                dict(proposal=wo, sortCode=ph, shopPerson=person)
+            )
+        elif tool == 3:
+            # fix primary
+            self.fix_assignments.emit()
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -444,6 +605,7 @@ class MainWindow(QMainWindow):
         menu_entries = {
             "Daily Assignments": self.show_daily_assignments_pane,
             "New Workorder": self.show_new_workorder_pane,
+            "Tools": self.show_tools_pane,
             "Settings": self.show_settings_pane,
             "Quit": self.exit_app,
         }
@@ -456,8 +618,6 @@ class MainWindow(QMainWindow):
         self.addToolBar(self.toolbar)
 
         # Build tray icon
-        # self._normal_icon = QIcon(":icons/aim.png")
-        # self._active_icon = QIcon(":icons/aim-active.png")
         self._normal_icon = QIcon(os.path.join(RESOURCES, "aim.png"))
         self._active_icon = QIcon(os.path.join(RESOURCES, "aim-active.png"))
         self._active = False
@@ -474,13 +634,16 @@ class MainWindow(QMainWindow):
 
         self.assignments_pane = DailyAssingnmentsPane(self)
         self.workorder_pane = NewWorkorderPane(self)
+        self.tools_pane = ExtraToolsPane(self)
         self.settings_pane = SettingsPane(self)
 
         self.settings_pane.message.connect(self.statusbar.showMessage)
+        self.tools_pane.message.connect(self.statusbar.showMessage)
 
         self.stack = QStackedLayout()
         self.stack.addWidget(self.assignments_pane)
         self.stack.addWidget(self.workorder_pane)
+        self.stack.addWidget(self.tools_pane)
         self.stack.addWidget(self.settings_pane)
 
         container = QWidget()
@@ -504,8 +667,15 @@ class MainWindow(QMainWindow):
             self.show()
 
     @Slot()
-    def show_settings_pane(self) -> None:
+    def show_tools_pane(self) -> None:
         self.stack.setCurrentIndex(2)
+        self.activateWindow()
+        if self.isHidden():
+            self.show()
+
+    @Slot()
+    def show_settings_pane(self) -> None:
+        self.stack.setCurrentIndex(3)
         self.activateWindow()
         if self.isHidden():
             self.show()
@@ -589,6 +759,12 @@ def run() -> None:
         window.workorder_pane.submit_form.connect(daemon.create_workorder)
         window.assignments_pane.submit_form.connect(daemon.create_daily_assignments)
         window.settings_pane.submit_form.connect(CONFIG.update)
+
+        window.tools_pane.fix_assignments.connect(daemon.fix_primary_assignments)
+        window.tools_pane.guess_hrcs.connect(daemon.guess_hrcs)
+        window.tools_pane.add_hrc.connect(daemon.add_hrc_to_workorder)
+        window.tools_pane.assign_workorder.connect(daemon.assign_workorder)
+
         window.show()
 
         daemon.start()

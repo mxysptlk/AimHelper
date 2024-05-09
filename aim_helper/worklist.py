@@ -25,6 +25,9 @@ AIM_API = AIM_BASE + "api/v3/iq-reports/custom-resource?"
 AIM_API_PHASE_SEARCH = (
     AIM_API + "filterName={}&screenName=PHASE_SEARCH&value&rowLimit=1000"
 )
+AIM_API_SHOP_ASSIGNMET_SEARCH = (
+    AIM_API + "tableName=AePProS&proposal={}&value&rowLimit=10000"
+)
 
 WO_FIELDS = (
     "proposal",
@@ -53,13 +56,19 @@ ALLOWABLE_DAYS = {
 
 
 class Workorder(dict):
+
+    def __getitem__(self, key: Any) -> Any:
+        if key not in self.keys():
+            return ""
+        return super().__getitem__(key)
+
     def __repr__(self) -> str:
         return f"Workorder:\n{json.dumps(self, indent=2)}"
 
 
-def limit_fields(record: dict, *fields: str) -> Dict[str, Any]:
-    """Include only listed fields in a record"""
-    return {field: record[field] for field in fields if field in record}
+def limit_fields(workorder: Workorder, *fields: str) -> Dict[str, Any]:
+    """Include only listed fields in a workorder"""
+    return {field: workorder[field] for field in fields}
 
 
 def _get_new_cookies(netid: str = CONFIG.netid) -> dict:
@@ -109,9 +118,8 @@ def get_workorders(query: str, s: Session = Session()) -> list[Workorder]:
 
     s.cookies = get_cookies()
     r = s.get(AIM_HOME, allow_redirects=False)
-    if r.status_code != 200:
-        s.cookies = get_cookies()
-    elif r.cookies:
+    if r.cookies:
+        s.cookies = r.cookies
         save_cookies(r.cookies)
     logger.debug(f"Fetching {AIM_API_PHASE_SEARCH.format(query)}")
     r = s.get(AIM_API_PHASE_SEARCH.format(query))
@@ -119,36 +127,39 @@ def get_workorders(query: str, s: Session = Session()) -> list[Workorder]:
     if r.status_code != 200:
         return list()
     workorders = [
-        Workorder(**record["fields"]) for record in r.json()["ResultSet"]["Results"]
+        Workorder(**workorder["fields"])
+        for workorder in r.json()["ResultSet"]["Results"]
     ]
     return workorders
 
 
-def is_past_due(record: dict) -> bool:
-    if record["priCode"] not in ALLOWABLE_DAYS.keys():
+def is_past_due(workorder: Workorder) -> bool:
+    if workorder["priCode"] not in ALLOWABLE_DAYS.keys():
         return False
-    created = datetime.datetime.fromisoformat(record["entDate"])
+    created = datetime.datetime.fromisoformat(workorder["entDate"])
     if (
         datetime.datetime.today().astimezone() - created
-        > ALLOWABLE_DAYS[record["priCode"]]
+        > ALLOWABLE_DAYS[workorder["priCode"]]
     ):
         return True
     return False
 
 
-def has_no_hrc(record: dict) -> bool:
+def has_no_hrc(workorder: Workorder) -> bool:
     r = re.compile(r"hrc( )?[0-9]{3}$", re.IGNORECASE | re.MULTILINE)
-    return not r.search(record["description"])
+    return not r.search(workorder["description"])
 
 
-def has_keyword_regex(record: dict, keyword: str, ignore_case=True) -> bool:
+def has_keyword_regex(workorder: Workorder, keyword: str, ignore_case=True) -> bool:
     if ignore_case:
-        return re.search(keyword, record["description"], re.IGNORECASE | re.MULTILINE)
-    return bool(re.search(keyword, record["description"]))
+        return re.search(
+            keyword, workorder["description"], re.IGNORECASE | re.MULTILINE
+        )
+    return bool(re.search(keyword, workorder["description"]))
 
 
-def guess_hrc(record: dict) -> str:
-    txt = record["description"]
+def guess_hrc(workorder: Workorder) -> str:
+    txt = workorder["description"]
     if re.search(
         r"\b(animal(s)?|primate|lab|fume(hood)?)\b", txt, re.IGNORECASE | re.MULTILINE
     ):
@@ -160,3 +171,27 @@ def guess_hrc(record: dict) -> str:
     if re.search("lift station", txt, re.IGNORECASE | re.MULTILINE):
         return "113"
     return "110"
+
+
+def get_shop_assignments(
+    workorders: list[Workorder], s: Session = Session()
+) -> list[dict]:
+    s.cookies = get_cookies()
+    r = s.get(AIM_HOME, allow_redirects=False)
+    if r.cookies:
+        s.cookies = r.cookies
+        save_cookies(r.cookies)
+
+    proposals = ",".join([w["proposal"] for w in workorders])
+    logger.debug(f"Fetching {AIM_API_SHOP_ASSIGNMET_SEARCH.format(proposals)}")
+
+    r = s.get(AIM_API_SHOP_ASSIGNMET_SEARCH.format(proposals))
+    logger.debug(f"Respose code:{r.status_code}")
+
+    if r.status_code != 200:
+        return list()
+    return [p["fields"] for p in r.json()["ResultSet"]["Results"]]
+
+
+def has_primary(workorder: Workorder) -> bool:
+    pass
