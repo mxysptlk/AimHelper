@@ -497,6 +497,7 @@ class ExtraToolsPane(QWidget):
         placeholder_layout.addWidget(
             QLabel("No additional parameters required for this tool.")
         )
+        placeholder_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         placeholder.setLayout(placeholder_layout)
 
         # Add HRC form
