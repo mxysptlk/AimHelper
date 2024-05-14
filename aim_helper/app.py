@@ -38,9 +38,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
 )
 
-# from . import resources
 from .settings import CONFIG, RESOURCES
-from .worklist import Workorder
 from .aim_daemon import AimDaemon
 
 
@@ -117,7 +115,7 @@ class CrashDialog(QDialog):
     def __init__(self, crash_text: str) -> None:
         super().__init__()
         self.setWindowTitle("Error!")
-        self.lable = QLabel("Aim-Helper has crashed, click to show detailed report")
+        self.lable = QLabel("AimHelper has crashed, click to show detailed report")
         self.text = QPlainTextEdit()
         self.button = QPushButton("Show")
 
@@ -136,9 +134,9 @@ class CrashDialog(QDialog):
 class ConfigWizardWindow(QDialog):
     def __init__(self, parent: QWidget = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Aim-Helper inital config")
+        self.setWindowTitle("AimHelper inital config")
         self.help_text = QLabel(
-            "Before running Aim-Helper, please enter your NetID Login"
+            "Before running AimHelper, please enter your NetID Login"
         )
         self.netid = QLineEdit()
         self.password = QLineEdit()

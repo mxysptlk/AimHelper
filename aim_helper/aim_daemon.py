@@ -412,8 +412,9 @@ def assign_workorder(aim: AimSession, workorder: Workorder):
         workorder=workorder["proposal"],
         phase=workorder["sortCode"],
         shop=CONFIG.shop,
-        person=workorder["ShopPerson"],
+        person=workorder["shopPerson"],
     )
+    aim.update_daily_assignment(name=workorder["shopPerson"], wo=workorder["proposal"])
 
 
 def make_job(workorder: Workorder, action: JobAction) -> Job:

@@ -192,6 +192,3 @@ def get_shop_assignments(
         return list()
     return [p["fields"] for p in r.json()["ResultSet"]["Results"]]
 
-
-def has_primary(workorder: Workorder) -> bool:
-    pass
