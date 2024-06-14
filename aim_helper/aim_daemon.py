@@ -36,8 +36,8 @@ DISABLE_FETCH = False
 MSG = "New Urgent work request(s)"
 AIM_URL_TEMPLATE = "https://washington.assetworks.hosting/fmax/screen/PHASE_VIEW?proposal={}&sortCode={}"
 INTERVAL = 5 * 60 * 1000
-CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm)\\b"
-HOLD_REGEX = "fire|transfer"
+# CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm$)\\b"
+# HOLD_REGEX = "fire|transfer switch"
 URGENT = ("300 HIGH", "200 URGENT", "100 EMERGENCY")
 
 
@@ -248,12 +248,15 @@ class AimFetcher(QObject):
 
         logger.debug("parsing pm's...")
         real_pms = [
-            wo for wo in self.new_workorders if has_keyword_regex(wo, HOLD_REGEX)
+            wo
+            for wo in self.new_workorders
+            if has_keyword_regex(wo, CONFIG.hold_regex)
+            and wo["priCode"] == "800 PREVENTIVE"
         ]
         fake_pms = [
             wo
             for wo in self.new_workorders
-            if has_keyword_regex(wo, CANCEL_REGEX) and wo not in real_pms
+            if has_keyword_regex(wo, CONFIG.cancel_regex) and wo not in real_pms
         ]
         logger.debug("parsing stale...")
         stale_workorders = [

@@ -70,6 +70,8 @@ BUILDINGS = {
 
 PRIORITY_CODES = ("300 HIGH", "400 ROUTINE", "500 SCHEDULED")
 
+CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm$)\\b"
+HOLD_REGEX = "fire|transfer switch"
 
 @dataclass
 class Config(QObject):
@@ -83,6 +85,8 @@ class Config(QObject):
     refresh: int = 300000
     buildings: dict = field(default_factory=lambda: BUILDINGS)
     debug: bool = True
+    cancel_regex: str = CANCEL_REGEX
+    hold_regex: str = HOLD_REGEX
     ntfy_include_href = False
     has_changed = Signal(str)
 

@@ -336,6 +336,9 @@ class SettingsPane(QWidget):
         self.debug.setToolTip("Display chromedriver window")
         # Connect sgnals
         self.change_password_button.clicked.connect(self.get_password)
+        self.change_password_button.setMaximumSize(
+            self.change_password_button.sizeHint()
+        )
 
         self.chrome_button.setMaximumSize(self.chrome_button.sizeHint())
         self.chrome_button.clicked.connect(self._locate_chrome)
@@ -348,9 +351,14 @@ class SettingsPane(QWidget):
         self.save_button.setMaximumSize(self.save_button.sizeHint())
 
         # make containers
+        netid_box = HorizontalContainer()
+        netid_box.addWidget(self.netid)
+        netid_box.addWidget(self.change_password_button)
+
         ntfy_box = HorizontalContainer()
         ntfy_box.addWidget(self.ntfy_url)
         ntfy_box.addWidget(self.ntfy_include_href)
+
         chrome_box = HorizontalContainer()
         chrome_box.addWidget(self.chrome_path)
         chrome_box.addWidget(self.chrome_button, 0)
@@ -364,9 +372,7 @@ class SettingsPane(QWidget):
         chrome_profile_box.addWidget(self.chrome_profile_button, 0)
 
         scroll_layout = QFormLayout()
-        scroll_layout.addRow("NetID", self.netid)
-        scroll_layout.addRow(self.change_password_button)
-        scroll_layout.addRow(QLabel())
+        scroll_layout.addRow("NetID", netid_box)
         scroll_layout.addRow("Refresh", self.refresh_time)
         scroll_layout.addRow("ntfy url", ntfy_box)
         scroll_layout.addRow("Chrome Profile", chrome_profile_box)
