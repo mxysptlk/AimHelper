@@ -269,7 +269,7 @@ class AimFetcher(QObject):
         urgent = [
             wo
             for wo in self.new_workorders
-            if datetime.fromisoformat(wo["entDate"]) > self.last_run
+            if datetime.fromisoformat(wo["entDate"]) >= self.last_run
             and wo["priCode"] in URGENT
             and wo not in fake_pms
         ]
