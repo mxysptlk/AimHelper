@@ -292,7 +292,6 @@ class AimFetcher(QObject):
         # emit signals
         if jobs:
             logger.debug(f"{len(jobs)} new jobs found")
-            logger.debug(jobs)
             self.new_jobs.emit(jobs)
         if urgent:
             notify_17E_urgent(urgent)
