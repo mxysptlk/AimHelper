@@ -70,7 +70,7 @@ BUILDINGS = {
 
 PRIORITY_CODES = ("300 HIGH", "400 ROUTINE", "500 SCHEDULED")
 
-CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm$)\\b"
+CANCEL_REGEX = "\\b(an(n)ual.*Maintenance|pm)\\b"
 HOLD_REGEX = "fire|transfer switch"
 
 @dataclass

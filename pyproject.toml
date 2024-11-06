@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 [project.gui-scripts]
-aimhelper = "__main__:main"
+aimhelper = "aim_helper.app:run"
 
 [tool.hatch.version]
 path = "aim_helper/__init__.py"
