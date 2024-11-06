@@ -752,6 +752,7 @@ def run() -> None:
         app.setWindowIcon(QIcon(os.path.join(RESOURCES, "aim.png")))
 
         if not CONFIG.netid or not keyring.get_password("aim", CONFIG.netid):
+            print(CONFIG)
             first_launch()
 
         daemon = AimDaemon()

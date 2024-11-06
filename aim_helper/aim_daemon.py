@@ -146,8 +146,7 @@ class AimProcessor(QObject):
         self.started.emit()
         try:
             with AimSession(netid=CONFIG.netid, debug=CONFIG.debug) as aim:
-                if CONFIG.debug:
-                    aim.minimize_window()
+
                 aim.progress.connect(self.progress.emit)
                 aim.message.connect(self.message.emit)
                 job.action(aim, job.data)
@@ -167,8 +166,7 @@ class AimProcessor(QObject):
 
         try:
             with AimSession(netid=CONFIG.netid, debug=CONFIG.debug) as aim:
-                if CONFIG.debug:
-                    aim.minimize_window()
+
                 while self.jobs:
                     self.progress.emit(completed, self._total_jobs - 1)
                     job = self.jobs.pop()

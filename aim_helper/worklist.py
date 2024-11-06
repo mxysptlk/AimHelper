@@ -146,7 +146,7 @@ def is_past_due(workorder: Workorder) -> bool:
 
 
 def has_no_hrc(workorder: Workorder) -> bool:
-    r = re.compile(r"hrc( )?[0-9]{3}$", re.IGNORECASE | re.MULTILINE)
+    r = re.compile(r"hrc( )?[0-9]{3}", re.IGNORECASE | re.MULTILINE)
     return not r.search(workorder["description"])
 
 
@@ -191,4 +191,3 @@ def get_shop_assignments(
     if r.status_code != 200:
         return list()
     return [p["fields"] for p in r.json()["ResultSet"]["Results"]]
-

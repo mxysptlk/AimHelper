@@ -10,7 +10,7 @@ if __name__ == "__main__":
     logging.basicConfig(
         handlers=[
             logging.StreamHandler(sys.stdout),
-            RotatingFileHandler(LOG_FILE, maxBytes=pow(10, 6), mode="w"),
+            RotatingFileHandler(LOG_FILE, maxBytes=pow(10, 4), mode="w"),
         ]
     )
     run()

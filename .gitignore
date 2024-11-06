@@ -10,3 +10,5 @@ dist/
 .pyenv
 .vscode/*
 .sync-exclude.lst
+aimhelper/aimhelper-0.50-py3-none-any.whl
+aimhelper/aimhelper-0.50.tar.gz
