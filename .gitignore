@@ -12,3 +12,6 @@ dist/
 .sync-exclude.lst
 aimhelper/aimhelper-0.50-py3-none-any.whl
 aimhelper/aimhelper-0.50.tar.gz
+logging
+aimhelper/aimhelper-0.50-py3-none-any.whl
+aimhelper/aimhelper-0.50.tar.gz
