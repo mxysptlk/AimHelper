@@ -16,15 +16,21 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
+# from selenium.webdriver.chrome.service import Service
 from PySide6.QtCore import QObject, Signal
 
 from .settings import CONFIG
 
 if sys.platform == "win32":
     from subprocess import CREATE_NO_WINDOW
+    Service = webdriver.edge.service.Service
+    Driver = webdriver.Edge
+    Options = webdriver.EdgeOptions
 else:
     CREATE_NO_WINDOW = None
+    Service = webdriver.chrome.service.Service
+    Driver = webdriver.Chrome
+    Options = webdriver.ChromeOptions
 
 logger = logging.getLogger(__name__)
 if CONFIG.debug:
@@ -161,7 +167,7 @@ class AimSession(QObject):
         super().__init__()
         if not netid:
             raise ValueError("netid must be provided")
-        opt = webdriver.ChromeOptions()
+        opt = Options()
         opt.headless = not debug
         opt.add_argument("--remote-debugging-port=9222")
         if CONFIG.chrome_exe:
@@ -178,7 +184,7 @@ class AimSession(QObject):
             service.creationflags = CREATE_NO_WINDOW
         self.shop = "17 ELECTRICAL"
         logger.info("Initializing webdriver...")
-        self.driver = webdriver.Chrome(
+        self.driver = Driver(
             service=service,
             options=opt,
         )
